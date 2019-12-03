@@ -55,16 +55,36 @@ class BSON {
 			return this.FromScanner(Scanner)
 		}
 	}
+	ParseDocument(Scanner) {
+		DocumentLength := Scanner.ReadUInt()
+		
+		DocumentObject := {}
+		
+		try {
+			loop {
+				Element := this.ParseElement(Scanner)
+				DocumentObject[Element.Key] := Element.Value
+			} until (Scanner.Tell() = DocumentLength)
+		}
+		catch E {
+			if (E.Message = "EOF") {
+				return DocumentObject
+			}
+			else {
+				Throw, E
+			}
+		}
+		
+		return DocumentObject
+	}
 	ParseElement(Scanner) {
 		ElementType := Scanner.ReadChar()
 		
 		if (ElementType = BSONTypes.None) {
 			Throw, Exception("EOF")
 		}
-		
-		Element := {}
 	
-		Element.Key := this.ParseKeyName(Scanner)
+		Key := this.ParseKeyName(Scanner)
 	
 		Switch (ElementType) {
 			Case BSONTypes.Double: {
@@ -93,9 +113,7 @@ class BSON {
 			}
 		}
 		
-		Element.Value := Value
-		
-		return Element
+		return {"Key": Key, "Value": Value}
 	}
 	ParseKeyName(Scanner) {
 		; Reads a cstring
@@ -118,8 +136,6 @@ class BSON {
 		
 		return StringValue
 	}
-	
-	
 	
 	
 	class Dump extends BSON.Functor {
@@ -157,15 +173,20 @@ class BSON {
 		
 		ObjectBytes.Push(0) ; And ends with a null terminator
 		
-		return BSON.Merge(SplitIntoBytes32(ObjectBytes.Count() + 4), ObjectBytes) ; BSON.Merge the elements/null terminator onto the size of the object
+		return BSON.Merge(Conversions.SplitIntoBytes32(ObjectBytes.Count() + 4), ObjectBytes) ; BSON.Merge the elements/null terminator onto the size of the object
 	}
 	DumpElement(Key, Value) {
 		ElementBytes := []
+		
+		if (IsObject(Key)) {
+			Throw, Exception("The BSON format does not support using objects as keys.")
+		}
+		
 		BSON.Merge(ElementBytes, this.DumpString(Key))
 		
-		if (IsFloat(Value)) {
+		if (Conversions.IsFloat(Value)) {
 			ElementType := BSONTypes.Double
-			BSON.Merge(ElementBytes, SplitIntoBytes64(FloatToBinaryInt(Value)))
+			BSON.Merge(ElementBytes, Conversions.SplitIntoBytes64(Conversions.FloatToBinaryInt(Value)))
 		}
 		else if (Value = 0 || Value = 1) {
 			ElementType := BSONTypes.Boolean
@@ -178,21 +199,21 @@ class BSON {
 			ElementType := BSONTypes.Object
 			BSON.Merge(ElementBytes, this.DumpObject(Value))
 		}
-		else if (IsNumber(Value)) {
-			ValueLength := NumberSizeOf(Value)
+		else if (Conversions.IsNumber(Value)) {
+			ValueLength := Conversions.NumberSizeOf(Value)
 			
 			if (ValueLength <= 32) {
 				ElementType := BSONTypes.Int
-				BSON.Merge(ElementBytes, SplitIntoBytes32(Value))
+				BSON.Merge(ElementBytes, Conversions.SplitIntoBytes32(Value))
 			}
 			else {
 				ElementType := BSONTypes.Int64
-				BSON.Merge(ElementBytes, SplitIntoBytes64(Value))
+				BSON.Merge(ElementBytes, Conversions.SplitIntoBytes64(Value))
 			}
 		}
 		else {
 			ElementType := BSONTypes.String
-			BSON.Merge(ElementBytes, SplitIntoBytes32(StrLen(Value) + 1)) ; When an element is a string, first you have to dump it's length
+			BSON.Merge(ElementBytes, Conversions.SplitIntoBytes32(StrLen(Value) + 1)) ; When an element is a string, first you have to dump it's length
 			BSON.Merge(ElementBytes, this.DumpString(Value))
 		}
 		
@@ -208,29 +229,6 @@ class BSON {
 		StringBytes.Push(0) ; null terminator
 		
 		return StringBytes 
-	}
-
-	ParseDocument(Scanner) {
-		DocumentLength := Scanner.ReadUInt()
-		
-		DocumentObject := {}
-		
-		try {
-			loop {
-				Element := this.ParseElement(Scanner)
-				DocumentObject[Element.Key] := Element.Value
-			} until (Scanner.Tell() = DocumentLength)
-		}
-		catch E {
-			if (E.Message = "EOF") {
-				return DocumentObject
-			}
-			else {
-				Throw, E
-			}
-		}
-		
-		return DocumentObject
 	}
 	
 	Merge(ArrayOne, ArrayTwo) {

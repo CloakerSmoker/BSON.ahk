@@ -79,58 +79,58 @@
 		
 		return End HexString
 	}
-}
-
-IsNumber(Value) {
-	if Value is Integer
-		return true
 	
-	return false
-}
-IsFloat(Value) {
-	if Value is Float
-		return true
-
-	return false
-}
-FloatToBinaryInt(Float) {
-	VarSetCapacity(Buffer, 8, 0)
-	NumPut(Float, &Buffer + 0, 0, "Double")
-	return NumGet(&Buffer + 0, 0, "UInt64")
-}
-
-SplitIntoBytes32(Integer) {
-	Array := []
-
-	loop, % 4 {
-		Array.Push((Integer >> ((A_Index - 1) * 8)) & 0xFF)
+	IsNumber(Value) {
+		if Value is Integer
+			return true
+		
+		return false
+	}
+	IsFloat(Value) {
+		if Value is Float
+			return true
+	
+		return false
+	}
+	FloatToBinaryInt(Float) {
+		VarSetCapacity(Buffer, 8, 0)
+		NumPut(Float, &Buffer + 0, 0, "Double")
+		return NumGet(&Buffer + 0, 0, "UInt64")
 	}
 	
-	return Array
-}
-SplitIntoBytes64(Integer) {
-	FirstFour := SplitIntoBytes32((Integer & 0x00000000FFFFFFFF) >> 0)
-	LastFour := SplitIntoBytes32((Integer & 0x7FFFFFFF00000000) >> 32)
-
-	return [FirstFour[1], FirstFour[2], FirstFour[3], FirstFour[4], LastFour[1], LastFour[2], LastFour[3], LastFour[4]]
-}
-NumberSizeOf(Number, ReturnNumber := true) {
-	static Sizes := {8: "I8", 16: "I16", 32: "I32", 64: "I64"}
-
-	loop 64 {
-		NextBit := Number & (1 << (64 - A_Index))
+	SplitIntoBytes32(Integer) {
+		Array := []
 	
-		if (NextBit) {
-			Length := A_Index - 1
-			break
+		loop, % 4 {
+			Array.Push((Integer >> ((A_Index - 1) * 8)) & 0xFF)
 		}
+		
+		return Array
 	}
+	SplitIntoBytes64(Integer) {
+		FirstFour := SplitIntoBytes32((Integer & 0x00000000FFFFFFFF) >> 0)
+		LastFour := SplitIntoBytes32((Integer & 0x7FFFFFFF00000000) >> 32)
 	
-	NewLength := 64 - Length
-	
-	while !(Sizes.HasKey(NewLength)) {
-		NewLength++
+		return [FirstFour[1], FirstFour[2], FirstFour[3], FirstFour[4], LastFour[1], LastFour[2], LastFour[3], LastFour[4]]
 	}
+	NumberSizeOf(Number, ReturnNumber := true) {
+		static Sizes := {8: "I8", 16: "I16", 32: "I32", 64: "I64"}
 	
-	return (ReturnNumber ? NewLength : Sizes[NewLength])
+		loop 64 {
+			NextBit := Number & (1 << (64 - A_Index))
+		
+			if (NextBit) {
+				Length := A_Index - 1
+				break
+			}
+		}
+		
+		NewLength := 64 - Length
+		
+		while !(Sizes.HasKey(NewLength)) {
+			NewLength++
+		}
+		
+		return (ReturnNumber ? NewLength : Sizes[NewLength])
+	}
 }
